@@ -8,7 +8,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "24"
+  NODE_VERSION: "22"
   GENVM_VERSION: "v0.2.12"
 
 permissions:
@@ -91,7 +91,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci || npm install --no-audit
 
       - name: Run unit tests
         run: npm run test
