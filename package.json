@@ -1,0 +1,14 @@
+{
+  "name": "chainsettle",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ChainSettle - Autonomous Dispute Resolution & Micro-Arbitration on GenLayer",
+  "scripts": {
+    "genlayer": "genlayer",
+    "network:studionet": "genlayer network set studionet",
+    "network:info": "genlayer network info"
+  },
+  "devDependencies": {
+    "genlayer": "0.39.1"
+  }
+}

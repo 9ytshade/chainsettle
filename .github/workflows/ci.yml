@@ -1,0 +1,106 @@
+name: ChainSettle CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "24"
+  GENVM_VERSION: "v0.2.12"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-checks:
+    name: Contract linter and Direct Mode tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Cache GenVM artifacts
+        id: cache-genvm
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/genvm-linter
+            ~/.cache/gltest-direct
+          key: genvm-${{ env.GENVM_VERSION }}
+
+      - name: Download and extract GenVM standard library
+        if: steps.cache-genvm.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.cache/genvm-linter/genvmroot
+          mkdir -p ~/.cache/gltest-direct
+          mkdir -p /tmp/genvm-extracted
+          curl -fsSL "https://github.com/genlayerlabs/genvm/releases/download/${{ env.GENVM_VERSION }}/genvm-universal.tar.xz" \
+            -o /tmp/genvm.tar.xz
+          tar -xf /tmp/genvm.tar.xz -C /tmp/genvm-extracted
+          cp -r /tmp/genvm-extracted/runners ~/.cache/genvm-linter/genvmroot/runners
+          cp /tmp/genvm.tar.xz ~/.cache/genvm-linter/genvm-universal.tar.xz
+          cp /tmp/genvm.tar.xz ~/.cache/genvm-linter/genvm-universal-${{ env.GENVM_VERSION }}.tar.xz
+          cp /tmp/genvm.tar.xz ~/.cache/gltest-direct/genvm-universal.tar.xz
+          cp /tmp/genvm.tar.xz ~/.cache/gltest-direct/genvm-universal-${{ env.GENVM_VERSION }}.tar.xz
+          latest_tag=$(curl -s "https://api.github.com/repos/genlayerlabs/genvm/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -n "$latest_tag" ]; then
+            cp /tmp/genvm.tar.xz ~/.cache/genvm-linter/genvm-universal-${latest_tag}.tar.xz
+            cp /tmp/genvm.tar.xz ~/.cache/gltest-direct/genvm-universal-${latest_tag}.tar.xz
+          fi
+          rm -rf /tmp/genvm.tar.xz /tmp/genvm-extracted
+
+      - name: Run contract linter
+        env:
+          GENVMROOT: ~/.cache/genvm-linter/genvmroot
+          PYTHONIOENCODING: utf-8
+        run: |
+          genvm-lint contracts/chainsettle.py
+          genvm-lint validate contracts/chainsettle.py
+
+      - name: Run Direct Mode test suite
+        run: python -m pytest tests/direct/ -v --tb=short
+
+  frontend-checks:
+    name: Frontend tests, lint, and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Dependency vulnerability audit
+        run: npm audit --omit=dev
+
+      - name: Production build
+        run: npm run build

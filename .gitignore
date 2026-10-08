@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Builds & Frameworks
+.next/
+out/
+dist/
+build/
+
+# Testing & Cache
+.pytest_cache/
+coverage/
+
+# Environment & Secrets (NEVER COMMIT KEYS)
+.env
+.env.local
+*.pem
+*.key
+*-results.json
+results.json
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

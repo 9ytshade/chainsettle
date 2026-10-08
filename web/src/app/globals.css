@@ -1,0 +1,300 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-void: #08090a;
+  --color-carbon: #0f1011;
+  --color-obsidian: #161718;
+  --color-graphite: #23252a;
+  --color-smoke: #383b3f;
+  --color-ash: #62666d;
+  --color-fog: #8a8f98;
+  --color-mist: #d0d6e0;
+  --color-bone: #e5e5e6;
+  --color-paper: #ffffff;
+  --color-acid-lime: #e4f222;
+  --color-pulse-green: #27a644;
+  --color-coral-red: #eb5757;
+  --color-signal-teal: #02b8cc;
+  --color-iris-violet: #6366f1;
+  --color-lavender: #8b5cf6;
+
+  /* Typography */
+  --font-inter-variable: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-berkeley-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
+
+  /* Border Radius */
+  --radius-cards: 12px;
+  --radius-pills: 9999px;
+  --radius-badges: 4px;
+  --radius-inputs: 6px;
+  --radius-buttons: 6px;
+}
+
+:root {
+  /* Default: Linear Midnight Dark */
+  --color-void: #08090a;
+  --color-carbon: #0f1011;
+  --color-obsidian: #161718;
+  --color-graphite: #23252a;
+  --color-smoke: #383b3f;
+  --color-ash: #62666d;
+  --color-fog: #8a8f98;
+  --color-mist: #d0d6e0;
+  --color-bone: #e5e5e6;
+  --color-paper: #ffffff;
+  --color-acid-lime: #e4f222;
+  --color-acid-lime-text: #08090a;
+  --color-pulse-green: #27a644;
+  --color-coral-red: #eb5757;
+  --color-signal-teal: #02b8cc;
+  --color-iris-violet: #6366f1;
+  --color-lavender: #8b5cf6;
+
+  /* Semantic Mapping */
+  --background: var(--color-void);
+  --foreground: var(--color-mist);
+  --ink: var(--color-paper);
+  --muted-ink: var(--color-fog);
+  --card: var(--color-carbon);
+  --paper: var(--color-obsidian);
+  --line: var(--color-graphite);
+  --line-strong: var(--color-smoke);
+  --signal: var(--color-acid-lime);
+  --signal-dark: #cbd91a;
+  --verdict: var(--color-pulse-green);
+  --dispute: var(--color-coral-red);
+
+  color-scheme: dark;
+}
+
+
+
+/* Midnight precision reset */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter-variable), 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv01" on, "ss03" on, "zero" on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.mono, code, pre {
+  font-family: var(--font-berkeley-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-feature-settings: "cv01" on, "ss03" on;
+  letter-spacing: -0.013em;
+}
+
+/* Linear Precision Components */
+
+/* Primary Action Button (Acid Lime) */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--color-acid-lime);
+  color: var(--color-acid-lime-text, var(--color-void));
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 510;
+  letter-spacing: -0.011em;
+  border: 1px solid transparent;
+  transition: all 120ms ease;
+  box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 4px 0px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Ghost / Outline Button */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: transparent;
+  color: var(--color-mist);
+  border: 1px solid var(--color-graphite);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 400;
+  transition: all 120ms ease;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-obsidian);
+  color: var(--color-paper);
+  border-color: var(--color-smoke);
+}
+
+/* White Pill Button (Sign-up / Connect) */
+.btn-white-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--color-paper);
+  color: var(--color-void);
+  border-radius: 9999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 510;
+  border: 1px solid transparent;
+  transition: all 120ms ease;
+}
+
+html[data-theme="light"] .btn-white-pill {
+  background-color: #090a0c;
+  color: #ffffff;
+}
+
+.btn-white-pill:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-0.5px);
+}
+
+/* Pill Button / Chips */
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-obsidian);
+  color: var(--color-mist);
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 400;
+  border: 1px solid var(--color-graphite);
+  transition: all 120ms ease;
+}
+
+.btn-pill:hover {
+  background-color: var(--color-smoke);
+  color: var(--color-paper);
+}
+
+/* Linear Card (Product Surface Frame) */
+.card-box {
+  background-color: var(--color-carbon);
+  border: 1px solid var(--color-graphite);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 2px 4px 0px;
+  transition: border-color 150ms ease;
+}
+
+.card-box:hover {
+  border-color: var(--color-smoke);
+}
+
+/* Nested Subtle Panel */
+.panel-subtle {
+  background-color: var(--color-obsidian);
+  border: 1px solid var(--color-graphite);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+/* Linear Text Input & Textarea */
+.input-box {
+  width: 100%;
+  background-color: var(--color-obsidian);
+  border: 1px solid var(--color-graphite);
+  color: var(--color-mist);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.input-box::placeholder {
+  color: var(--color-fog);
+}
+
+.input-box:focus {
+  border-color: var(--color-smoke);
+  box-shadow: 0 0 0 1px var(--color-smoke);
+}
+
+/* Precision Status Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-berkeley-mono), ui-monospace, monospace;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
+
+.badge-open {
+  background-color: rgba(99, 102, 241, 0.12);
+  color: var(--color-iris-violet);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.badge-delivered {
+  background-color: rgba(2, 184, 204, 0.12);
+  color: var(--color-signal-teal);
+  border: 1px solid rgba(2, 184, 204, 0.3);
+}
+
+.badge-disputed {
+  background-color: rgba(235, 87, 87, 0.12);
+  color: var(--color-coral-red);
+  border: 1px solid rgba(235, 87, 87, 0.3);
+}
+
+.badge-settled {
+  background-color: rgba(39, 166, 68, 0.12);
+  color: var(--color-pulse-green);
+  border: 1px solid rgba(39, 166, 68, 0.3);
+}
+
+.badge-assigned {
+  background-color: rgba(2, 184, 204, 0.12);
+  color: var(--color-signal-teal);
+  border: 1px solid rgba(2, 184, 204, 0.3);
+}
+
+.badge-audited {
+  background-color: rgba(235, 87, 87, 0.12);
+  color: var(--color-coral-red);
+  border: 1px solid rgba(235, 87, 87, 0.3);
+}
+
+.badge-cancelled {
+  background-color: rgba(98, 102, 109, 0.12);
+  color: var(--color-ash);
+  border: 1px solid rgba(98, 102, 109, 0.3);
+}
+
