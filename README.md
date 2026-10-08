@@ -16,7 +16,7 @@ GenLayer validators perform an **autonomous initial AI audit**: if 100% of crite
 - **Deployment Transaction:** [`0xbe7cb0f2a87a503884a08dc2f224c597d16e88012a4ea7e4dbf5828075662ba1`](https://genlayer-explorer.vercel.app/tx/0xbe7cb0f2a87a503884a08dc2f224c597d16e88012a4ea7e4dbf5828075662ba1)
 - **Deployment Consensus Status:** `ACCEPTED` (Majority Agree on Studionet)
 - **CLI Toolchain:** `genlayer` 0.39.1 · `genlayer-py` 0.16.3 · `gltest` 0.29.2 · `genvm-linter` 0.7.1
-- **Documentation:** [MVP Specification](docs/MVP_SPEC.md) · [Contract Specification](docs/CONTRACT_SPEC.md) · [Studionet Live Run Report](docs/STUDIONET_LIVE_RUN_REPORT.md) · [Master Fix Playbook](docs/MASTER_FIX_PLAYBOOK.md) · [In-App Protocol Guide](web/src/app/protocol/page.tsx)
+- **Documentation:** [MVP Specification](docs/MVP_SPEC.md) · [Contract Specification](docs/CONTRACT_SPEC.md) · [Studionet Live Run Report](docs/STUDIONET_LIVE_RUN_REPORT.md) · [In-App Protocol Guide](web/src/app/protocol/page.tsx)
 
 ---
 
