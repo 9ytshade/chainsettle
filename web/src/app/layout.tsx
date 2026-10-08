@@ -6,6 +6,14 @@ export const metadata: Metadata = {
   title: "ChainSettle - Autonomous Dispute Court & Micro-Arbitration",
   description:
     "Midnight precision dispute court for freelance escrow powered by GenLayer Intelligent Contracts and validator consensus.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    shortcut: "/icon.svg",
+    apple: "/apple-icon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -16,6 +24,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="alternate icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/apple-icon.svg" />
         <script
           dangerouslySetInnerHTML={{
             __html: `document.documentElement.classList.add('dark');document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('chainsettle-theme');}catch(e){}`,
