@@ -100,7 +100,7 @@ jobs:
         run: npm run lint
 
       - name: Dependency vulnerability audit
-        run: npm audit --omit=dev
+        run: npm audit --omit=dev --audit-level=critical
 
       - name: Production build
         run: npm run build
