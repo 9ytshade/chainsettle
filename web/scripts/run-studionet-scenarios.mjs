@@ -106,7 +106,7 @@ async function main() {
   const cancelA = await execWrite(
     clientDeployer,
     `Cancel Agreement #${caseAId}`,
-    "cancel_agreement",
+    "cancel_unaccepted_agreement",
     [caseAId],
     0n
   );
@@ -302,7 +302,7 @@ async function main() {
   const overrideC = await execWrite(
     clientDeployer,
     `Sovereign Override Approve #${caseCId}`,
-    "sovereign_override_approve",
+    "approve_delivery",
     [caseCId],
     0n
   );
