@@ -12,8 +12,8 @@ GenLayer validators perform an **autonomous initial AI audit**: if 100% of crite
 - **Author & Architect:** 9ytshade
 - **Contract Version:** `1.2.0` (Two-Stage Hybrid Escrow & Adversarial Dispute Court)
 - **Network:** GenLayer Studionet (Chain ID: `61999`)
-- **Contract Address:** [`0xD94f893C237551ca887991f0725aa96fc746B86F`](https://genlayer-explorer.vercel.app/address/0xD94f893C237551ca887991f0725aa96fc746B86F)
-- **Deployment Transaction:** [`0xbe7cb0f2a87a503884a08dc2f224c597d16e88012a4ea7e4dbf5828075662ba1`](https://genlayer-explorer.vercel.app/tx/0xbe7cb0f2a87a503884a08dc2f224c597d16e88012a4ea7e4dbf5828075662ba1)
+- **Contract Address:** [`0x29a246a021F02D9A0b1f18a7DCc695d7Ee7643E5`](https://explorer-studio.genlayer.com/address/0x29a246a021F02D9A0b1f18a7DCc695d7Ee7643E5)
+- **Deployment Transaction:** [`0x0a45950603bfc16f9e0692f319bc4ae87d036c01996db86eea5807517939220a`](https://explorer-studio.genlayer.com/tx/0x0a45950603bfc16f9e0692f319bc4ae87d036c01996db86eea5807517939220a)
 - **Deployment Consensus Status:** `ACCEPTED` (Majority Agree on Studionet)
 - **CLI Toolchain:** `genlayer` 0.39.1 · `genlayer-py` 0.16.3 · `gltest` 0.29.2 · `genvm-linter` 0.7.1
 - **Documentation:** [MVP Specification](docs/MVP_SPEC.md) · [Contract Specification](docs/CONTRACT_SPEC.md) · [Studionet Live Run Report](docs/STUDIONET_LIVE_RUN_REPORT.md) · [In-App Protocol Guide](web/src/app/protocol/page.tsx)
