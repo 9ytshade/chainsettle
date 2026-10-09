@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,6 +18,16 @@ import { TransactionLifecycle, TxStatus } from "@/components/transaction-lifecyc
 import { RulingVerdictCard } from "@/components/ruling-verdict-card";
 import { ScaleIcon } from "@/components/icons";
 import { useWallet } from "@/lib/use-wallet";
+import { waitForTransactionReceipt } from "@/lib/tx-waiter";
+
+function subscribeTimer(callback: () => void) {
+  const timer = setInterval(callback, 10_000);
+  return () => clearInterval(timer);
+}
+
+function getNowSecSnapshot() {
+  return Math.floor(Date.now() / 1000);
+}
 
 export default function CourtTrialPage() {
   const params = useParams();
@@ -33,9 +43,11 @@ export default function CourtTrialPage() {
 
   // Counter-defense state
   const [defense, setDefense] = useState("");
+  const [waiveRemainingTime, setWaiveRemainingTime] = useState(false);
   const [showDefenseForm, setShowDefenseForm] = useState(false);
 
   const [txStatus, setTxStatus] = useState<TxStatus>({ state: "idle" });
+  const nowSec = useSyncExternalStore(subscribeTimer, getNowSecSnapshot, () => 0);
 
   useEffect(() => {
     async function loadCase() {
@@ -95,29 +107,25 @@ export default function CourtTrialPage() {
         message: "Validators analyzing evidence & reaching Equivalence Consensus…",
       });
 
-      let terminalFailure = false;
-      for (let i = 0; i < 30; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        try {
-          const tx = (await client.getTransaction({
-            hash: hashStr as unknown as Parameters<typeof client.getTransaction>[0]["hash"],
-          })) as Record<string, unknown>;
-          const st = String(tx?.statusName ?? tx?.status ?? "");
-          if (st === "FINALIZED") {
-            break;
-          }
-          if (st === "FAILED" || st === "REVERTED" || st === "CANCELED") {
-            terminalFailure = true;
-            break;
-          }
-        } catch {}
-      }
+      const waitResult = await waitForTransactionReceipt(client, hashStr, {
+        timeoutMs: 90_000,
+        intervalMs: 2_000,
+      });
 
-      if (terminalFailure) {
+      if (waitResult.status === "failed") {
         setTxStatus({
           state: "failed",
           hash: hashStr,
-          message: "Adjudication transaction failed on GenLayer.",
+          message: waitResult.error ?? "Adjudication transaction failed on GenLayer.",
+        });
+        return;
+      }
+
+      if (waitResult.status === "timeout") {
+        setTxStatus({
+          state: "timeout",
+          hash: hashStr,
+          message: "Adjudication transaction timed out while pending. Check explorer for final ruling.",
         });
         return;
       }
@@ -157,7 +165,7 @@ export default function CourtTrialPage() {
       const hash = await client.writeContract({
         address: chainSettleContractAddress as `0x${string}`,
         functionName: "submit_dispute_defense",
-        args: [caseId, defense.trim()],
+        args: [caseId, defense.trim(), waiveRemainingTime],
         value: BigInt(0),
       });
 
@@ -168,29 +176,25 @@ export default function CourtTrialPage() {
         message: "Submitting defense to GenLayer validators…",
       });
 
-      let defenseFailed = false;
-      for (let i = 0; i < 30; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        try {
-          const tx = (await client.getTransaction({
-            hash: hashStr as unknown as Parameters<typeof client.getTransaction>[0]["hash"],
-          })) as Record<string, unknown>;
-          const st = String(tx?.statusName ?? tx?.status ?? "");
-          if (st === "FINALIZED") {
-            break;
-          }
-          if (st === "FAILED" || st === "REVERTED" || st === "CANCELED") {
-            defenseFailed = true;
-            break;
-          }
-        } catch {}
-      }
+      const waitResult = await waitForTransactionReceipt(client, hashStr, {
+        timeoutMs: 60_000,
+        intervalMs: 2_000,
+      });
 
-      if (defenseFailed) {
+      if (waitResult.status === "failed") {
         setTxStatus({
           state: "failed",
           hash: hashStr,
-          message: "Failed to record defense statement on GenLayer.",
+          message: waitResult.error ?? "Failed to record defense statement on GenLayer.",
+        });
+        return;
+      }
+
+      if (waitResult.status === "timeout") {
+        setTxStatus({
+          state: "timeout",
+          hash: hashStr,
+          message: "Defense submission timed out. Still pending on Studionet—check explorer.",
         });
         return;
       }
@@ -205,6 +209,70 @@ export default function CourtTrialPage() {
       setTxStatus({
         state: "failed",
         error: err instanceof Error ? err.message : "Failed to submit defense.",
+      });
+    }
+  }
+
+  async function handleWaiveDefenseWindow() {
+    if (!window.ethereum || !userAccount) {
+      alert("Please connect your wallet first.");
+      return;
+    }
+
+    setTxStatus({
+      state: "submitting",
+      message: "Waiving remaining defense window on Studionet…",
+    });
+
+    try {
+      const client = createChainSettleClient(userAccount as `0x${string}`);
+      const hash = await client.writeContract({
+        address: chainSettleContractAddress as `0x${string}`,
+        functionName: "waive_defense_window",
+        args: [caseId],
+        value: BigInt(0),
+      });
+
+      const hashStr = String(hash);
+      setTxStatus({
+        state: "pending",
+        hash: hashStr,
+        message: "Recording defense window waiver…",
+      });
+
+      const waitResult = await waitForTransactionReceipt(client, hashStr, {
+        timeoutMs: 60_000,
+        intervalMs: 2_000,
+      });
+
+      if (waitResult.status === "failed") {
+        setTxStatus({
+          state: "failed",
+          hash: hashStr,
+          message: waitResult.error ?? "Failed to waive defense window.",
+        });
+        return;
+      }
+
+      if (waitResult.status === "timeout") {
+        setTxStatus({
+          state: "timeout",
+          hash: hashStr,
+          message: "Waiver transaction timed out. Still pending on Studionet—check explorer.",
+        });
+        return;
+      }
+
+      setTxStatus({
+        state: "finalized",
+        hash: hashStr,
+        message: "Defense window waived! Adjudication unlocked.",
+      });
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (err) {
+      setTxStatus({
+        state: "failed",
+        error: err instanceof Error ? err.message : "Failed to waive defense window.",
       });
     }
   }
@@ -236,6 +304,21 @@ export default function CourtTrialPage() {
   const criteriaList = agreement.criteria.split("\n").filter(Boolean);
   const isWorker = Boolean(userAddr && workerAddr && userAddr === workerAddr);
   const isClient = Boolean(userAddr && clientAddr && userAddr === clientAddr);
+
+  const defenseDeadline = dispute?.defense_deadline ? Number(dispute.defense_deadline) : 0;
+  const defenseSubmitted = Boolean(dispute?.defense_submitted);
+  const defenseWaived = Boolean(dispute?.defense_waived);
+  const isWindowActive = Boolean(
+    isDisputed &&
+    defenseDeadline > 0 &&
+    nowSec < defenseDeadline &&
+    !(defenseSubmitted && defenseWaived)
+  );
+  const remainingSec = Math.max(0, defenseDeadline - nowSec);
+  const daysLeft = Math.floor(remainingSec / 86400);
+  const hoursLeft = Math.floor((remainingSec % 86400) / 3600);
+  const minsLeft = Math.floor((remainingSec % 3600) / 60);
+  const countdownStr = `${daysLeft}d ${hoursLeft}h ${minsLeft}m remaining`;
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
@@ -293,9 +376,15 @@ export default function CourtTrialPage() {
             <span className="font-medium text-[#ffffff]">{formatWeiToGen(agreement.reward)} GEN</span>
           </div>
           <div>
-            <span className="text-[10px] text-[#62666d] uppercase block mb-0.5">Defense Filed</span>
-            <span className={dispute?.defense ? "text-[#27a644]" : "text-[#eb5757]"}>
-              {dispute?.defense ? "Yes" : "Pending"}
+            <span className="text-[10px] text-[#62666d] uppercase block mb-0.5">Defense Window</span>
+            <span className={isWindowActive ? "text-[#e4f222] font-medium" : defenseWaived ? "text-[#27a644]" : "text-[#8a8f98]"}>
+              {isWindowActive
+                ? countdownStr
+                : defenseWaived
+                ? "Waived by Builder"
+                : defenseSubmitted
+                ? "Submitted"
+                : "Window Expired"}
             </span>
           </div>
         </div>
@@ -315,18 +404,36 @@ export default function CourtTrialPage() {
               </h2>
             </div>
             <p className="text-[13px] text-[#8a8f98] leading-relaxed">
-              Both parties file their evidence and grievance statements. Any network participant can trigger the Intelligent Contract&apos;s Equivalence Principle adjudication. Validators independently fetch the commit-pinned source files, audit the live deployment, evaluate the claimant complaint and contractor defense, and disburse proportional Basis Points settlement.
+              Both parties file their evidence and grievance statements. Any network participant can trigger the Intelligent Contract&apos;s Equivalence Principle adjudication once the 3-day builder defense window completes or is waived. Validators independently fetch the commit-pinned source files, audit the live deployment, evaluate the claimant complaint and contractor defense, and disburse proportional Basis Points settlement.
             </p>
           </div>
+
+          {isWindowActive && (
+            <div className="p-3.5 rounded-[8px] bg-[#e4f222]/10 border border-[#e4f222]/30 text-[12px] text-[#ffffff] space-y-1">
+              <div className="font-medium flex items-center gap-2 text-[#e4f222]">
+                <span>⏳</span>
+                <span>Defense Window In Progress ({countdownStr})</span>
+              </div>
+              <p className="text-[11px] text-[#d0d6e0]">
+                Contractor has an active on-chain defense window until{" "}
+                <span className="font-mono text-[#ffffff]">
+                  {new Date(defenseDeadline * 1000).toLocaleString()}
+                </span>
+                . Adjudication is locked until the window expires or the contractor waives the remaining time.
+              </p>
+            </div>
+          )}
 
           {/* Primary Action Button (Acid Lime) */}
           <button
             onClick={handleAdjudicate}
-            disabled={txStatus.state === "submitting" || txStatus.state === "pending"}
-            className="btn-primary w-full py-3.5 text-[14px]"
+            disabled={isWindowActive || txStatus.state === "submitting" || txStatus.state === "pending"}
+            className="btn-primary w-full py-3.5 text-[14px] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {txStatus.state === "submitting" || txStatus.state === "pending" ? (
               "Magistrate Jury in Session (Consensus Evaluation)…"
+            ) : isWindowActive ? (
+              `Adjudication Locked (${countdownStr})`
             ) : (
               <span className="flex items-center justify-center gap-2">
                 <ScaleIcon className="w-4 h-4" />
@@ -375,13 +482,31 @@ export default function CourtTrialPage() {
 
           {/* Builder Counter-Defense Statement */}
           {dispute?.defense ? (
-            <div>
-              <h4 className="text-[12px] font-medium text-[#27a644] mb-2">
-                Builder Counter-Defense Statement
-              </h4>
-              <p className="text-[13px] p-3 rounded-[6px] bg-[#161718] border border-[#27a644]/30 text-[#d0d6e0] leading-relaxed whitespace-pre-wrap">
-                {dispute.defense}
-              </p>
+            <div className="space-y-3">
+              <div>
+                <h4 className="text-[12px] font-medium text-[#27a644] mb-2">
+                  Builder Counter-Defense Statement
+                </h4>
+                <p className="text-[13px] p-3 rounded-[6px] bg-[#161718] border border-[#27a644]/30 text-[#d0d6e0] leading-relaxed whitespace-pre-wrap">
+                  {dispute.defense}
+                </p>
+              </div>
+
+              {isWorker && isWindowActive && !defenseWaived && (
+                <div className="p-3 rounded-[6px] bg-[#161718] border border-[#e4f222]/30 space-y-2">
+                  <p className="text-[12px] text-[#8a8f98]">
+                    Your defense statement is filed on-chain. If you are ready for the magistrates to rule immediately without waiting {countdownStr}, you can waive the remaining defense window.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleWaiveDefenseWindow}
+                    disabled={txStatus.state === "submitting" || txStatus.state === "pending"}
+                    className="btn-primary text-[11px]"
+                  >
+                    Waive Remaining Defense Window & Unlock Adjudication
+                  </button>
+                </div>
+              )}
             </div>
           ) : isWorker && isDisputed ? (
             <div className="p-3.5 rounded-[8px] bg-[#161718] border border-[#e4f222]/30 space-y-3">
@@ -411,7 +536,16 @@ export default function CourtTrialPage() {
                     onChange={(e) => setDefense(e.target.value)}
                     className="input-box text-[13px]"
                   />
-                  <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-[12px] text-[#d0d6e0] cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={waiveRemainingTime}
+                      onChange={(e) => setWaiveRemainingTime(e.target.checked)}
+                      className="rounded border-[#23252a] text-[#e4f222] focus:ring-0"
+                    />
+                    <span>Waive remaining defense window (permits immediate AI adjudication)</span>
+                  </label>
+                  <div className="flex items-center gap-2 pt-1">
                     <button
                       type="submit"
                       disabled={txStatus.state === "submitting" || txStatus.state === "pending"}

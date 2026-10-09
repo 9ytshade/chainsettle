@@ -12,6 +12,7 @@ import {
 import { formatWeiToGen } from "@/lib/safety";
 import { useWallet } from "@/lib/use-wallet";
 import { TransactionLifecycle, TxStatus } from "@/components/transaction-lifecycle";
+import { waitForTransactionReceipt } from "@/lib/tx-waiter";
 import {
   ZapIcon,
   ScaleIcon,
@@ -111,27 +112,25 @@ export function AgreementModal({
         message: "Waiting for validator consensus on GenLayer…",
       });
 
-      let terminalFailure = false;
-      for (let i = 0; i < 30; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        try {
-          const tx = (await client.getTransaction({
-            hash: hashStr as unknown as Parameters<typeof client.getTransaction>[0]["hash"],
-          })) as Record<string, unknown>;
-          const st = String(tx?.statusName ?? tx?.status ?? "");
-          if (st === "FINALIZED") break;
-          if (st === "FAILED" || st === "REVERTED" || st === "CANCELED") {
-            terminalFailure = true;
-            break;
-          }
-        } catch {}
-      }
+      const waitResult = await waitForTransactionReceipt(client, hashStr, {
+        timeoutMs: 60_000,
+        intervalMs: 2_000,
+      });
 
-      if (terminalFailure) {
+      if (waitResult.status === "failed") {
         setTxStatus({
           state: "failed",
           hash: hashStr,
-          message: "Transaction reached terminal failure on GenLayer.",
+          message: waitResult.error ?? "Transaction reached terminal failure on GenLayer.",
+        });
+        return;
+      }
+
+      if (waitResult.status === "timeout") {
+        setTxStatus({
+          state: "timeout",
+          hash: hashStr,
+          message: "Transaction status check timed out. Still pending on Studionet—check explorer.",
         });
         return;
       }

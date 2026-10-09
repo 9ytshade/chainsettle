@@ -19,7 +19,7 @@ export function genLayerTransactionUrl(hash: string) {
 
 export const chainSettleContractAddress =
   process.env.NEXT_PUBLIC_CHAINSETTLE_CONTRACT_ADDRESS ??
-  "0xD94f893C237551ca887991f0725aa96fc746B86F";
+  "0x29a246a021F02D9A0b1f18a7DCc695d7Ee7643E5";
 
 export { TransactionHashVariant };
 
@@ -150,6 +150,7 @@ export interface AgreementData {
   ruling_id: number;
   audit_status?: "none" | "pending" | "passed" | "deficient";
   audit_report?: string;
+  audit_attempt?: number;
 }
 
 export interface DeliveryData {
@@ -162,6 +163,7 @@ export interface DeliveryData {
   deployment_url: string;
   summary: string;
   delivered_at: number;
+  delivery_version?: number;
 }
 
 export interface DisputeData {
@@ -170,6 +172,9 @@ export interface DisputeData {
   complaint: string;
   defense?: string;
   disputed_at: number;
+  defense_deadline?: number;
+  defense_submitted?: boolean;
+  defense_waived?: boolean;
   adjudication_count: number;
 }
 

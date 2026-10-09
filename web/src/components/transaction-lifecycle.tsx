@@ -5,7 +5,7 @@ import { genLayerTransactionUrl } from "@/lib/genlayer";
 import { CheckIcon, XIcon, CopyIcon } from "@/components/icons";
 
 export interface TxStatus {
-  state: "idle" | "submitting" | "pending" | "finalized" | "failed";
+  state: "idle" | "submitting" | "pending" | "finalized" | "failed" | "timeout";
   hash?: string;
   error?: string;
   message?: string;
@@ -18,6 +18,7 @@ export function TransactionLifecycle({ status }: { status: TxStatus }) {
 
   const isFinalized = status.state === "finalized";
   const isFailed = status.state === "failed";
+  const isTimeout = status.state === "timeout";
 
   return (
     <div
@@ -26,6 +27,8 @@ export function TransactionLifecycle({ status }: { status: TxStatus }) {
           ? "border-[#27a644]/40 text-[#ffffff]"
           : isFailed
           ? "border-[#eb5757]/40 text-[#ffffff]"
+          : isTimeout
+          ? "border-[#e4f222]/50 text-[#ffffff]"
           : "border-[#23252a] text-[#d0d6e0]"
       }`}
     >
@@ -46,6 +49,11 @@ export function TransactionLifecycle({ status }: { status: TxStatus }) {
             <XIcon className="w-3 h-3 text-[#eb5757]" />
           </span>
         )}
+        {isTimeout && (
+          <span className="w-5 h-5 rounded-full bg-[#e4f222]/20 text-[#e4f222] flex items-center justify-center shrink-0 text-[12px] font-bold">
+            ⏳
+          </span>
+        )}
 
         <div className="flex-1">
           <p className="font-medium text-[13px] text-[#ffffff]">
@@ -53,6 +61,7 @@ export function TransactionLifecycle({ status }: { status: TxStatus }) {
             {status.state === "pending" && "Validators executing consensus & Equivalence verification…"}
             {isFinalized && "Transaction confirmed & finalized on Studionet"}
             {isFailed && "Transaction failed"}
+            {isTimeout && "Still pending—check explorer"}
           </p>
           {status.message && (
             <p className="text-[12px] text-[#8a8f98] mt-0.5">{status.message}</p>

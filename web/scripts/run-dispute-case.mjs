@@ -5,7 +5,7 @@ import { createClient, createAccount } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import fs from "fs";
 
-const CONTRACT_ADDRESS = "0xD94f893C237551ca887991f0725aa96fc746B86F";
+const CONTRACT_ADDRESS = "0x29a246a021F02D9A0b1f18a7DCc695d7Ee7643E5";
 const RPC_ENDPOINT = "https://studio.genlayer.com/api";
 
 async function main() {
@@ -97,7 +97,7 @@ async function main() {
     ]
   );
 
-  // 5. Builder files counter-defense
+  // 5. Builder files counter-defense with defense window waiver
   console.log(`--> [DEFENSE] Builder submitting dispute defense rebuttal on Agreement #${agreementId}...`);
   const txDefense = await execWrite(
     clientBuilder,
@@ -106,6 +106,7 @@ async function main() {
     [
       agreementId,
       "The README architecture was delivered completely per specifications. Pinned commit e83e87d2 proves full milestone adherence.",
+      true, // waive_remaining_time
     ]
   );
 

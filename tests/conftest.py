@@ -29,3 +29,35 @@ if os.name == "nt":
                 _unlink(path)
             except (FileNotFoundError, PermissionError):
                 pass
+
+import sys
+import pytest
+
+contract_file = Path(__file__).resolve().parent.parent / "contracts" / "chainsettle.py"
+
+def _ensure_sdk_active() -> None:
+    try:
+        from gltest.direct.sdk_loader import setup_sdk_paths
+        if "genlayer" in sys.modules:
+            mod = sys.modules["genlayer"]
+            # If genlayer was loaded from system site-packages instead of gltest-direct SDK cache
+            mod_file = getattr(mod, "__file__", "") or ""
+            if "gltest-direct" not in mod_file or not hasattr(mod, "gl"):
+                sys.modules.pop("genlayer", None)
+        if contract_file.exists():
+            setup_sdk_paths(contract_file)
+    except Exception:
+        pass
+
+_ensure_sdk_active()
+
+@pytest.fixture(autouse=True)
+def _maintain_genlayer_sdk():
+    _ensure_sdk_active()
+    yield
+    _ensure_sdk_active()
+
+def pytest_runtest_setup(item):
+    _ensure_sdk_active()
+
+
