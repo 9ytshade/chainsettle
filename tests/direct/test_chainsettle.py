@@ -60,7 +60,7 @@ def create_agreement(
 
 def test_deploy_and_version(direct_deploy):
     contract = deploy_contract(direct_deploy)
-    assert contract.get_contract_version() == "1.2.0"
+    assert contract.get_contract_version() == "1.3.0"
     assert contract.get_agreement_count() == 0
     assert contract.get_ruling_count() == 0
 
@@ -883,4 +883,163 @@ def test_prompt_injection_protection_in_all_user_fields(
     ruling = contract.adjudicate_dispute(agreement_id)
     assert ruling["verdict"] == "PARTIAL_SETTLEMENT"
     assert ruling["worker_basis_points"] == 6500
+
+
+def test_audit_replay_protection_blocks_identical_commits_and_historical_replays(
+    direct_vm, direct_deploy, direct_alice, direct_bob
+):
+    """Enforce audit replay protection: prevent workers from resubmitting previously evaluated commits or unchanged evidence."""
+    contract = deploy_contract(direct_deploy)
+    agreement_id = create_agreement(
+        direct_vm, contract, client=direct_alice, worker=direct_bob, reward=60_000
+    )
+
+    commit_1 = "https://github.com/bob/store/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    commit_2 = "https://github.com/bob/store/commit/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+    direct_vm.sender = direct_bob
+    contract.submit_delivery(
+        agreement_id=agreement_id,
+        repository_url=commit_1,
+        deployment_url=VALID_DEPLOY_URL,
+        summary="Initial delivery submission for review",
+        evidence_paths=VALID_EVIDENCE_PATHS,
+    )
+
+    # First audit flags deficiencies -> Agreement enters STATUS_AUDITED
+    direct_vm.mock_web(r"raw\.githubusercontent\.com/.*", {"status": 200, "body": "const test = 1;"})
+    direct_vm.mock_web(r"bob-store\.example\.com", {"status": 200, "body": "<html><body>App</body></html>"})
+    direct_vm.mock_llm(
+        r"Initial delivery submission for review",
+        '{"criterion_results": ["PASS", "FAIL", "FAIL"], "verdict": "PARTIAL_SETTLEMENT", "worker_basis_points": 3333, "calculation_breakdown": "1 of 3 pass", "reasoning": "Missing criteria"}',
+    )
+    res1 = contract.verify_delivery(agreement_id)
+    assert res1["audit_status"] == "deficient"
+
+    # Attempt 1: Resubmit identical commit_1 again -> REJECTED
+    with direct_vm.expect_revert("Commit SHA has already been evaluated for this agreement"):
+        contract.submit_delivery(
+            agreement_id=agreement_id,
+            repository_url=commit_1,
+            deployment_url=VALID_DEPLOY_URL,
+            summary="Trying to resubmit the exact same commit again",
+            evidence_paths=VALID_EVIDENCE_PATHS,
+        )
+
+    # Worker submits genuine new revision with commit_2
+    contract.submit_delivery(
+        agreement_id=agreement_id,
+        repository_url=commit_2,
+        deployment_url=VALID_DEPLOY_URL,
+        summary="Second delivery revision addressing broken Stripe webhooks",
+        evidence_paths=VALID_EVIDENCE_PATHS,
+    )
+
+    # Second audit also flags deficiencies
+    direct_vm.mock_llm(
+        r"Second delivery revision addressing",
+        '{"criterion_results": ["PASS", "PASS", "FAIL"], "verdict": "PARTIAL_SETTLEMENT", "worker_basis_points": 6666, "calculation_breakdown": "2 of 3 pass", "reasoning": "Stripe webhook still failing"}',
+    )
+    res2 = contract.verify_delivery(agreement_id)
+    assert res2["audit_status"] == "deficient"
+
+    # Attempt 2: Replay commit_1 historically (A -> B -> A replay attack) -> REJECTED
+    with direct_vm.expect_revert("Commit SHA has already been evaluated for this agreement"):
+        contract.submit_delivery(
+            agreement_id=agreement_id,
+            repository_url=commit_1,
+            deployment_url=VALID_DEPLOY_URL,
+            summary="Trying to revert back to commit_1 and re-audit",
+            evidence_paths=VALID_EVIDENCE_PATHS,
+        )
+
+
+def test_evidence_based_bps_bounding_rejects_inflated_partial_payouts(direct_deploy):
+    """Partial settlement basis points must be mathematically consistent with criterion evidence."""
+    contract = deploy_contract(direct_deploy)
+    criteria_count = 3  # ~3333 BPS nominal share each
+
+    # 1 PASS, 2 FAIL: Maximum possible BPS is capped by the failed criteria
+    with pytest.raises(Exception, match="exceed maximum supported by criteria evidence"):
+        contract._validate_assessment(
+            {
+                "criterion_results": ["PASS", "FAIL", "FAIL"],
+                "verdict": "PARTIAL_SETTLEMENT",
+                "worker_basis_points": 9500,  # 95% cannot be awarded when 2 of 3 criteria completely failed
+                "calculation_breakdown": "Invalid math",
+                "reasoning": "Contradictory split",
+            },
+            criteria_count,
+        )
+
+    # 0 PASS, 1 PARTIAL, 2 FAIL: BPS cannot exceed the single partial criterion's bound
+    with pytest.raises(Exception, match="exceed maximum supported by criteria evidence"):
+        contract._validate_assessment(
+            {
+                "criterion_results": ["PARTIAL", "FAIL", "FAIL"],
+                "verdict": "PARTIAL_SETTLEMENT",
+                "worker_basis_points": 7000,
+                "calculation_breakdown": "Invalid math",
+                "reasoning": "Contradictory split",
+            },
+            criteria_count,
+        )
+
+
+def test_deficient_audit_blocks_uncontested_timeout_drain(
+    direct_vm, direct_deploy, direct_alice, direct_bob
+):
+    """Workers cannot drain 100% escrow via uncontested timeout after their deliverable failed audit."""
+    contract = deploy_contract(direct_deploy)
+    agreement_id = create_agreement(
+        direct_vm, contract, client=direct_alice, worker=direct_bob, reward=50_000
+    )
+
+    direct_vm.sender = direct_bob
+    contract.submit_delivery(
+        agreement_id=agreement_id,
+        repository_url=VALID_REPO_URL,
+        deployment_url=VALID_DEPLOY_URL,
+        summary=VALID_SUMMARY,
+        evidence_paths=VALID_EVIDENCE_PATHS,
+    )
+
+    # Run audit which flags deficiencies
+    direct_vm.mock_web(r"raw\.githubusercontent\.com/.*", {"status": 200, "body": "const test = 1;"})
+    direct_vm.mock_web(r"bob-store\.example\.com", {"status": 200, "body": "<html><body>App</body></html>"})
+    direct_vm.mock_llm(
+        r"Implemented full responsive store",
+        '{"criterion_results": ["FAIL", "FAIL", "FAIL"], "verdict": "FULL_REFUND_CLIENT", "worker_basis_points": 0, "calculation_breakdown": "0 pass", "reasoning": "Defective"}',
+    )
+    contract.verify_delivery(agreement_id)
+
+    agreement = contract.get_agreement(agreement_id)
+    assert agreement["status"] == "audited"
+    assert agreement["audit_status"] == "deficient"
+
+    # Worker attempts to claim uncontested payout on deficient deliverable -> REJECTED
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert("Cannot claim uncontested payout on deficient deliverable"):
+        contract.claim_uncontested_timeout(agreement_id)
+
+
+def test_review_window_lower_bound_enforcement(direct_vm, direct_deploy, direct_alice):
+    """Enforce review window cannot be set to a dangerously short interval (< 1 day)."""
+    contract = deploy_contract(direct_deploy)
+    direct_vm.sender = direct_alice
+    direct_vm.value = 50_000
+
+    deadline = future_timestamp(7)
+
+    # Setting review window to 60 seconds -> REJECTED ON-CHAIN
+    with direct_vm.expect_revert("Review window must be at least 1 day"):
+        contract.create_agreement(
+            ZERO_ADDRESS,
+            "Short review test",
+            BRIEF,
+            CRITERIA_3,
+            deadline,
+            review_window=60,
+        )
+
 

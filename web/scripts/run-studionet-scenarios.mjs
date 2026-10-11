@@ -5,12 +5,12 @@ import { createClient, createAccount } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import fs from "fs";
 
-const CONTRACT_ADDRESS = "0x29a246a021F02D9A0b1f18a7DCc695d7Ee7643E5";
+const CONTRACT_ADDRESS = "0xDF07e8e104633f06027Bd2642AA95e2bc3b98586";
 const RPC_ENDPOINT = "https://studio.genlayer.com/api";
 
 async function main() {
   console.log("===============================================================");
-  console.log("  ChainSettle v1.2.0: Studionet Live Lifecycle Verification");
+  console.log("  ChainSettle v1.3.0: Studionet Live Lifecycle Verification");
   console.log("===============================================================");
   console.log(`Contract: ${CONTRACT_ADDRESS}`);
   console.log(`Network:  GenLayer Studionet (Chain 61999)\n`);
@@ -22,10 +22,9 @@ async function main() {
   console.log(`[ACCOUNT] Client / Creator: ${deployer.address}`);
 
   // 2. Setup Dedicated Builder Account
-  // Reads from environment variable or generates clean test key
   const builderPk =
     process.env.BUILDER_PRIVATE_KEY ||
-    "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+    "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
   const builder = createAccount(builderPk);
   console.log(`[ACCOUNT] Contractor / Builder: ${builder.address}\n`);
 
@@ -49,24 +48,46 @@ async function main() {
     cases: [],
   };
 
-  // Helper function to send and wait
+  // Resilient helper function to send and wait for finality on Studionet
   async function execWrite(client, name, functionName, args, value = 0n) {
     console.log(`--> [TX START] ${name} (${functionName})...`);
-    const hash = await client.writeContract({
-      address: CONTRACT_ADDRESS,
-      functionName,
-      args,
-      value,
-    });
+    let hash;
+    for (let sendAttempt = 1; sendAttempt <= 5; sendAttempt++) {
+      try {
+        hash = await client.writeContract({
+          address: CONTRACT_ADDRESS,
+          functionName,
+          args,
+          value,
+        });
+        break;
+      } catch (err) {
+        if (sendAttempt === 5) throw err;
+        console.log(`    ... sendContract retry (${err.shortMessage || err.message}), waiting 3s...`);
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
     console.log(`    Hash: ${hash}`);
     console.log(`    Waiting for Studionet validator consensus...`);
-    const receipt = await client.waitForTransactionReceipt({
-      hash,
-      retries: 120,
-      interval: 5000,
-    });
-    console.log(`    Status: ${receipt.status} (Finalized)`);
-    return { hash, receipt };
+    
+    for (let attempt = 1; attempt <= 150; attempt++) {
+      try {
+        const tx = await client.getTransaction({ hash });
+        if (tx && (tx.status === 7 || tx.status === "FINALIZED")) {
+          console.log(`    Status: 7 (Finalized)`);
+          return { hash, receipt: tx };
+        }
+        if (attempt % 5 === 0) {
+          console.log(`    ... awaiting consensus (status: ${tx?.status ?? 'pending'}, attempt ${attempt}/150)`);
+        }
+      } catch (err) {
+        if (attempt % 5 === 0) {
+          console.log(`    ... RPC poll retry (${err.shortMessage || err.message}), attempt ${attempt}/150`);
+        }
+      }
+      await new Promise((r) => setTimeout(r, 4000));
+    }
+    throw new Error(`Transaction ${hash} did not finalize within timeout`);
   }
 
   // -------------------------------------------------------------
@@ -296,6 +317,44 @@ async function main() {
   });
   console.log(`    Audit Status: ${agreementCAfterAudit.audit_status}`);
   console.log(`    Agreement Status: ${agreementCAfterAudit.status}`);
+
+  // Adversarial Replay Check: Builder attempts to resubmit the exact same commit
+  console.log(`--> [ADVERSARIAL REPLAY ATTEMPT] Builder attempting to resubmit evaluated commit on #${caseCId}...`);
+  let replayBlocked = false;
+  try {
+    const replayTx = await clientBuilder.writeContract({
+      address: CONTRACT_ADDRESS,
+      functionName: "submit_delivery",
+      args: [
+        caseCId,
+        "https://github.com/9ytshade/proofpay/commit/e83e87d2d8f92987b7008a213ebca76ab133c8c2",
+        "https://proofpay-gamma.vercel.app/",
+        "Deliberate submission lacking the requested verification file.",
+        "README.md",
+      ],
+      value: 0n,
+    });
+    for (let attempt = 1; attempt <= 20; attempt++) {
+      try {
+        const tx = await clientBuilder.getTransaction({ hash: replayTx });
+        if (tx && (tx.status === 7 || tx.status === "FINALIZED")) {
+          const execRes = tx.txExecutionResult ?? tx.result ?? tx.result_name;
+          if (execRes !== 6 && execRes !== "SUCCESS") {
+            console.log(`    [PASS] Replay attack transaction reverted on-chain (result: ${execRes})!`);
+            replayBlocked = true;
+          }
+          break;
+        }
+      } catch {}
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  } catch (err) {
+    console.log(`    [PASS] Replay attack rejected immediately by contract: ${err.shortMessage || err.message}`);
+    replayBlocked = true;
+  }
+  if (!replayBlocked) {
+    console.warn("    [WARN] Replay attack was not blocked as expected!");
+  }
 
   // Creator exercises Sovereign Override to disburse 100% escrow
   console.log(`--> [SOVEREIGN OVERRIDE] Creator approving full payout despite deficient audit...`);

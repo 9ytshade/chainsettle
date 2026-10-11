@@ -5,6 +5,7 @@ import { shortAddress } from "./genlayer";
 
 export function useWallet() {
   const [account, setAccount] = useState<string>("");
+  const [chainId, setChainId] = useState<number | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
   const refreshAccount = useCallback(async () => {
@@ -16,12 +17,18 @@ export function useWallet() {
         setAccount("");
         return "";
       }
-      const accs = (await window.ethereum.request({ method: "eth_accounts" })) as string[];
+
+      const [accs, currentChainId] = await Promise.all([
+        window.ethereum.request({ method: "eth_accounts" }) as Promise<string[]>,
+        window.ethereum.request({ method: "eth_chainId" }) as Promise<string>,
+      ]);
+
       const first =
         Array.isArray(accs) && typeof accs[0] === "string"
           ? accs[0].toLowerCase().trim()
           : "";
       setAccount(first);
+      setChainId(Number(currentChainId));
       return first;
     } catch {
       setAccount("");
@@ -45,10 +52,16 @@ export function useWallet() {
       }
     };
 
+    const onChainChanged = (newChainId: unknown) => {
+      setChainId(Number(newChainId));
+    };
+
     window.ethereum.on("accountsChanged", onAccountsChanged);
+    window.ethereum.on("chainChanged", onChainChanged);
     return () => {
       window.clearTimeout(timer);
       window.ethereum?.removeListener("accountsChanged", onAccountsChanged);
+      window.ethereum?.removeListener("chainChanged", onChainChanged);
     };
   }, [refreshAccount]);
 
@@ -59,15 +72,17 @@ export function useWallet() {
     }
     setIsConnecting(true);
     try {
-      const accs = (await window.ethereum.request({
-        method: "eth_requestAccounts",
-      })) as string[];
+      const [accs, currentChainId] = await Promise.all([
+        window.ethereum.request({ method: "eth_requestAccounts" }) as Promise<string[]>,
+        window.ethereum.request({ method: "eth_chainId" }) as Promise<string>,
+      ]);
       const first =
         Array.isArray(accs) && typeof accs[0] === "string"
           ? accs[0].toLowerCase().trim()
           : "";
       window.sessionStorage.removeItem("chainsettle-wallet-disconnected");
       setAccount(first);
+      setChainId(Number(currentChainId));
       return first;
     } catch {
       return "";
@@ -76,11 +91,19 @@ export function useWallet() {
     }
   }, []);
 
+  const disconnect = useCallback(() => {
+    window.sessionStorage.setItem("chainsettle-wallet-disconnected", "true");
+    setAccount("");
+  }, []);
+
   return {
     account,
+    chainId,
+    isCorrectNetwork: chainId === 61999,
     isConnected: Boolean(account),
     isConnecting,
     connect,
+    disconnect,
     refreshAccount,
     shortAddress,
   };

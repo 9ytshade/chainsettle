@@ -74,4 +74,67 @@ describe("waitForTransactionReceipt", () => {
 
     expect(res.status).toBe("finalized");
   });
+
+  it("never treats ACCEPTED as finalized and keeps waiting until FINALIZED", async () => {
+    const mockClient = {
+      getTransaction: vi
+        .fn()
+        .mockResolvedValueOnce({ statusName: "ACCEPTED" })
+        .mockResolvedValueOnce({ statusName: "ACCEPTED" })
+        .mockResolvedValueOnce({ statusName: "FINALIZED" }),
+    };
+
+    const res = await waitForTransactionReceipt(mockClient, "0x789", {
+      intervalMs: 10,
+      timeoutMs: 100,
+    });
+
+    expect(res.status).toBe("finalized");
+    expect(mockClient.getTransaction).toHaveBeenCalledTimes(3);
+  });
+
+  it("fails when FINALIZED transaction had an on-chain execution revert", async () => {
+    const mockClient = {
+      getTransaction: vi.fn().mockResolvedValueOnce({
+        statusName: "FINALIZED",
+        txExecutionResult: 2,
+        txExecutionResultName: "FINISHED_WITH_ERROR",
+      }),
+    };
+
+    const res = await waitForTransactionReceipt(mockClient, "0xbad", {
+      intervalMs: 10,
+      timeoutMs: 100,
+    });
+
+    expect(res.status).toBe("failed");
+    if (res.status === "failed") {
+      expect(res.error).toContain("failed/reverted");
+    }
+  });
+
+  it("fails when FINALIZED transaction had a leader receipt error", async () => {
+    const mockClient = {
+      getTransaction: vi.fn().mockResolvedValueOnce({
+        statusName: "FINALIZED",
+        consensus_data: {
+          leader_receipt: [
+            {
+              result: { status: "error", payload: "Agreement deadline has passed" },
+            },
+          ],
+        },
+      }),
+    };
+
+    const res = await waitForTransactionReceipt(mockClient, "0xerr", {
+      intervalMs: 10,
+      timeoutMs: 100,
+    });
+
+    expect(res.status).toBe("failed");
+    if (res.status === "failed") {
+      expect(res.error).toBe("Agreement deadline has passed");
+    }
+  });
 });

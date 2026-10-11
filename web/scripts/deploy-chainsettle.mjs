@@ -9,7 +9,7 @@ import path from "path";
 const RPC_ENDPOINT = "https://studio.genlayer.com/api";
 
 async function main() {
-  console.log("=== Deploying ChainSettle v1.2.0 to Studionet ===");
+  console.log("=== Deploying ChainSettle v1.3.0 to Studionet ===");
 
   const deployerPk = await keytar.getPassword("genlayer-cli", "account:proofpay-deployer");
   if (!deployerPk) throw new Error("Deployer private key not found in keytar");
@@ -37,6 +37,7 @@ async function main() {
 
   const receipt = await client.waitForTransactionReceipt({
     hash: txHash,
+    status: "FINALIZED",
     retries: 150,
     interval: 5000,
   });

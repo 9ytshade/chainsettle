@@ -93,7 +93,7 @@ class Ruling:
 
 
 class ChainSettle(gl.Contract):
-    VERSION = "1.2.0"
+    VERSION = "1.3.0"
 
     ZERO_ADDRESS = Address("0x0000000000000000000000000000000000000000")
 
@@ -151,6 +151,7 @@ class ChainSettle(gl.Contract):
     deliveries: TreeMap[u256, Delivery]
     disputes: TreeMap[u256, Dispute]
     rulings: TreeMap[u32, Ruling]
+    submitted_commits: TreeMap[str, bool]
 
     def __init__(self):
         self.agreement_count = u256(0)
@@ -507,6 +508,16 @@ class ChainSettle(gl.Contract):
             if partial_count == 0 and pass_count == 0:
                 raise gl.vm.UserError("PARTIAL_SETTLEMENT requires at least one PARTIAL or mixed PASS criteria")
 
+            # Evidence-based validation: BPS must be mathematically bounded by assessed criteria
+            base_slice = self.BPS_MAX // criteria_count
+            max_supported_bps = self.BPS_MAX - (fail_count * (base_slice // 2))
+            if pass_count == 0 and partial_count == 1:
+                max_supported_bps = min(max_supported_bps, base_slice + (self.BPS_MAX % criteria_count) + 1_000)
+            if bps > max_supported_bps:
+                raise gl.vm.UserError(
+                    f"Partial settlement basis points ({bps}) exceed maximum supported by criteria evidence ({max_supported_bps})"
+                )
+
         return {
             "criterion_results": validated_results,
             "verdict": norm_verdict,
@@ -670,11 +681,12 @@ class ChainSettle(gl.Contract):
         if not is_open_bounty and actual_worker == gl.message.sender_address:
             raise gl.vm.UserError("Worker cannot be the agreement client")
 
-        actual_review_window = (
-            review_window
-            if review_window > u64(0)
-            else u64(self.DEFAULT_REVIEW_WINDOW_SECONDS)
-        )
+        if review_window == u64(0):
+            actual_review_window = u64(self.DEFAULT_REVIEW_WINDOW_SECONDS)
+        elif review_window < u64(86_400):  # At least 1 day
+            raise gl.vm.UserError("Review window must be at least 1 day (86,400 seconds)")
+        else:
+            actual_review_window = review_window
 
         self.agreement_count += u256(1)
         agreement_id = self.agreement_count
@@ -781,9 +793,30 @@ class ChainSettle(gl.Contract):
         if len(clean_summary) > self.MAX_SUMMARY_LENGTH:
             raise gl.vm.UserError("Delivery summary is too long")
 
+        commit_sha_norm = repository["commit_sha"].lower()
+        commit_key = f"{int(agreement_id)}:{commit_sha_norm}"
+
+        if commit_key in self.submitted_commits:
+            raise gl.vm.UserError(
+                "Commit SHA has already been evaluated for this agreement; submit a new commit with substantive changes"
+            )
+
         delivery_version = u32(1)
         if agreement_id in self.deliveries:
-            delivery_version = self.deliveries[agreement_id].delivery_version + u32(1)
+            old_delivery = self.deliveries[agreement_id]
+            if old_delivery.commit_sha.lower() == commit_sha_norm:
+                raise gl.vm.UserError(
+                    "New delivery revision must provide a new commit SHA; resubmitting the same commit is not permitted"
+                )
+            if (
+                manifest == old_delivery.evidence_paths
+                and deployment == old_delivery.deployment_url
+                and clean_summary == old_delivery.summary
+            ):
+                raise gl.vm.UserError(
+                    "New delivery revision contains no substantive change in evidence"
+                )
+            delivery_version = old_delivery.delivery_version + u32(1)
 
         self.deliveries[agreement_id] = Delivery(
             agreement_id=agreement_id,
@@ -797,6 +830,8 @@ class ChainSettle(gl.Contract):
             delivered_at=self._now(),
             delivery_version=delivery_version,
         )
+
+        self.submitted_commits[commit_key] = True
 
         agreement.status = self.STATUS_DELIVERED
         agreement.audit_status = self.AUDIT_PENDING
@@ -903,15 +938,15 @@ RULES:
                 validator_val = evaluate()
                 if leader_val["verdict"] != validator_val["verdict"]:
                     return False
+                # Validators must substantively agree on the evaluation of EACH criterion
+                if leader_val["criterion_results"] != validator_val["criterion_results"]:
+                    return False
                 if leader_val["verdict"] in (
                     self.VERDICT_FULL_PAYOUT_WORKER,
                     self.VERDICT_FULL_REFUND_CLIENT,
                     self.VERDICT_UNDETERMINED,
                 ):
-                    return (
-                        leader_val["criterion_results"] == validator_val["criterion_results"]
-                        and leader_val["worker_basis_points"] == validator_val["worker_basis_points"]
-                    )
+                    return leader_val["worker_basis_points"] == validator_val["worker_basis_points"]
                 bps_diff = abs(int(leader_val["worker_basis_points"]) - int(validator_val["worker_basis_points"]))
                 return bps_diff <= 500
             except Exception:
@@ -975,6 +1010,10 @@ RULES:
             raise gl.vm.UserError("Agreement is not awaiting approval")
         if gl.message.sender_address != agreement.worker:
             raise gl.vm.UserError("Only worker can claim uncontested payment")
+        if agreement.audit_status == self.AUDIT_DEFICIENT:
+            raise gl.vm.UserError(
+                "Cannot claim uncontested payout on deficient deliverable; resolve deficiencies or escalate to court dispute"
+            )
 
         delivery = self.deliveries[agreement_id]
         if self._now() <= delivery.delivered_at + agreement.review_window:
@@ -1175,15 +1214,15 @@ ARBITRATION RULES:
                 validator_val = evaluate()
                 if leader_val["verdict"] != validator_val["verdict"]:
                     return False
+                # Validators must substantively agree on the evaluation of EACH criterion
+                if leader_val["criterion_results"] != validator_val["criterion_results"]:
+                    return False
                 if leader_val["verdict"] in (
                     self.VERDICT_FULL_PAYOUT_WORKER,
                     self.VERDICT_FULL_REFUND_CLIENT,
                     self.VERDICT_UNDETERMINED,
                 ):
-                    return (
-                        leader_val["criterion_results"] == validator_val["criterion_results"]
-                        and leader_val["worker_basis_points"] == validator_val["worker_basis_points"]
-                    )
+                    return leader_val["worker_basis_points"] == validator_val["worker_basis_points"]
                 bps_diff = abs(int(leader_val["worker_basis_points"]) - int(validator_val["worker_basis_points"]))
                 return bps_diff <= 500
             except Exception:

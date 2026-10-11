@@ -13,6 +13,7 @@ import { formatWeiToGen } from "@/lib/safety";
 import { useWallet } from "@/lib/use-wallet";
 import { TransactionLifecycle, TxStatus } from "@/components/transaction-lifecycle";
 import { waitForTransactionReceipt } from "@/lib/tx-waiter";
+import { ensureStudionetNetwork, formatWalletErrorMessage } from "@/lib/wallet-guard";
 import {
   ZapIcon,
   ScaleIcon,
@@ -86,18 +87,12 @@ export function AgreementModal({
   }
 
   async function executeWrite(functionName: string, args: unknown[]) {
-    if (!window.ethereum || !userAccount) {
-      const acc = await connect();
-      if (!acc) {
-        alert("Please connect your wallet first.");
-        return;
-      }
-    }
-
     setTxStatus({ state: "submitting", message: `Executing ${functionName}…` });
 
     try {
-      const client = createChainSettleClient(userAccount as `0x${string}`);
+      const { address: activeAddress } = await ensureStudionetNetwork(userAccount || undefined);
+
+      const client = createChainSettleClient(activeAddress);
       const hash = await client.writeContract({
         address: chainSettleContractAddress as `0x${string}`,
         functionName,
@@ -145,7 +140,7 @@ export function AgreementModal({
     } catch (err) {
       setTxStatus({
         state: "failed",
-        error: err instanceof Error ? err.message : "Transaction failed.",
+        error: formatWalletErrorMessage(err, "Transaction failed."),
       });
     }
   }

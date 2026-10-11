@@ -15,6 +15,7 @@ import {
 } from "@/lib/safety";
 import { TransactionLifecycle, TxStatus } from "@/components/transaction-lifecycle";
 import { waitForTransactionReceipt } from "@/lib/tx-waiter";
+import { ensureStudionetNetwork, formatWalletErrorMessage } from "@/lib/wallet-guard";
 import { GlobeIcon, TargetIcon, CalendarIcon, ZapIcon } from "@/components/icons";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -92,12 +93,12 @@ export default function CreateAgreementPage() {
         throw new Error(versionCheck.error ?? "Incompatible contract version.");
       }
 
-      const accounts = (await window.ethereum.request({ method: "eth_accounts" })) as string[];
-      if (!accounts[0]) throw new Error("Connect your wallet first from the header.");
+      // Enforce Studionet network (Chain ID 61999) before write
+      const { address: activeAddress } = await ensureStudionetNetwork();
 
       setTxStatus({ state: "submitting", message: "Broadcasting escrow creation to Studionet…" });
 
-      const client = createChainSettleClient(accounts[0] as `0x${string}`);
+      const client = createChainSettleClient(activeAddress);
       const hash = await client.writeContract({
         address: chainSettleContractAddress as `0x${string}`,
         functionName: "create_agreement",
@@ -154,7 +155,7 @@ export default function CreateAgreementPage() {
     } catch (err) {
       setTxStatus({
         state: "failed",
-        error: err instanceof Error ? err.message : "Failed to create agreement.",
+        error: formatWalletErrorMessage(err, "Failed to create agreement."),
       });
     }
   }

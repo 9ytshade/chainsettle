@@ -28,6 +28,7 @@ export default function HomePage() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [pageSize] = useState<number>(12);
   const [loading, setLoading] = useState(true);
+  const [rpcError, setRpcError] = useState<string | null>(null);
   const [retryingFailed, setRetryingFailed] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -41,6 +42,9 @@ export default function HomePage() {
       setFailedIds(result.failedIds);
       setTotalCount(result.totalCount);
       setTotalPages(result.totalPages);
+      setRpcError(result.error ?? null);
+    } catch (err) {
+      setRpcError(err instanceof Error ? err.message : "RPC fetch failure");
     } finally {
       setLoading(false);
     }
@@ -387,6 +391,29 @@ export default function HomePage() {
           <div className="card-box text-center py-16 text-[#8a8f98] font-mono text-[13px] flex flex-col items-center justify-center gap-2">
             <RefreshCwIcon className="w-5 h-5 text-[#e4f222] animate-spin" />
             <span>Fetching finalized state from GenLayer Studionet…</span>
+          </div>
+        ) : rpcError ? (
+          <div className="card-box text-center py-16 space-y-4 border border-[#eb5757]/40 bg-[#161718]">
+            <div className="w-12 h-12 rounded-full bg-[#eb5757]/10 border border-[#eb5757]/30 flex items-center justify-center mx-auto text-[#eb5757]">
+              <AlertTriangleIcon className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-[17px] font-medium text-[#ffffff]">
+                GenLayer Studionet RPC Latency / Read Error
+              </h3>
+              <p className="text-[13px] text-[#8a8f98] max-w-lg mx-auto">
+                Unable to query contract state from the GenLayer endpoint: {rpcError}. On-chain records are intact, but could not be read at this moment.
+              </p>
+            </div>
+            <div className="pt-2">
+              <button
+                onClick={() => void loadAgreements()}
+                className="btn-primary inline-flex items-center gap-2 cursor-pointer"
+              >
+                <RefreshCwIcon className="w-4 h-4 text-[#08090a]" />
+                <span>Retry Connection</span>
+              </button>
+            </div>
           </div>
         ) : filtered.length === 0 ? (
           <div className="card-box text-center py-16 space-y-3">

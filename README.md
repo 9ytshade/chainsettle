@@ -10,11 +10,11 @@ GenLayer validators perform an **autonomous initial AI audit**: if 100% of crite
 
 ## Live Studionet Deployment & Toolchain
 - **Author & Architect:** 9ytshade
-- **Contract Version:** `1.2.0` (Two-Stage Hybrid Escrow & Adversarial Dispute Court)
+- **Contract Version:** `1.3.0` (Two-Stage Hybrid Escrow & Adversarial Dispute Court)
 - **Network:** GenLayer Studionet (Chain ID: `61999`)
-- **Contract Address:** [`0x29a246a021F02D9A0b1f18a7DCc695d7Ee7643E5`](https://explorer-studio.genlayer.com/address/0x29a246a021F02D9A0b1f18a7DCc695d7Ee7643E5)
-- **Deployment Transaction:** [`0x0a45950603bfc16f9e0692f319bc4ae87d036c01996db86eea5807517939220a`](https://explorer-studio.genlayer.com/tx/0x0a45950603bfc16f9e0692f319bc4ae87d036c01996db86eea5807517939220a)
-- **Deployment Consensus Status:** `ACCEPTED` (Majority Agree on Studionet)
+- **Contract Address:** [`0xDF07e8e104633f06027Bd2642AA95e2bc3b98586`](https://explorer-studio.genlayer.com/address/0xDF07e8e104633f06027Bd2642AA95e2bc3b98586)
+- **Deployment Transaction:** [`0xeea0bbc3c41b92d5f65ff220bb808dfbc8fabf1d98c35b18817f33eecf1e1a43`](https://explorer-studio.genlayer.com/tx/0xeea0bbc3c41b92d5f65ff220bb808dfbc8fabf1d98c35b18817f33eecf1e1a43)
+- **Deployment Consensus Status:** `FINALIZED` (Majority Agree on Studionet)
 - **CLI Toolchain:** `genlayer` 0.39.1 · `genlayer-py` 0.16.3 · `gltest` 0.29.2 · `genvm-linter` 0.7.1
 - **Documentation:** [MVP Specification](docs/MVP_SPEC.md) · [Contract Specification](docs/CONTRACT_SPEC.md) · [Studionet Live Run Report](docs/STUDIONET_LIVE_RUN_REPORT.md) · [In-App Protocol Guide](web/src/app/protocol/page.tsx)
 

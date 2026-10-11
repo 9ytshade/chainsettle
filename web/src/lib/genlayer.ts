@@ -19,7 +19,7 @@ export function genLayerTransactionUrl(hash: string) {
 
 export const chainSettleContractAddress =
   process.env.NEXT_PUBLIC_CHAINSETTLE_CONTRACT_ADDRESS ??
-  "0x29a246a021F02D9A0b1f18a7DCc695d7Ee7643E5";
+  "0xDF07e8e104633f06027Bd2642AA95e2bc3b98586";
 
 export { TransactionHashVariant };
 
@@ -200,6 +200,7 @@ export interface DiscoveryResult {
   page: number;
   pageSize: number;
   totalPages: number;
+  error?: string;
 }
 
 export async function discoverFinalAgreements(
@@ -248,7 +249,8 @@ export async function discoverFinalAgreements(
       pageSize,
       totalPages,
     };
-  } catch {
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : "Failed to connect to GenLayer Studionet RPC.";
     return {
       agreements: [],
       failedIds: [],
@@ -256,6 +258,7 @@ export async function discoverFinalAgreements(
       page: 1,
       pageSize,
       totalPages: 1,
+      error: errMsg,
     };
   }
 }

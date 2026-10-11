@@ -42,7 +42,60 @@ export async function waitForTransactionReceipt(
 
       options?.onPoll?.(attempt, lastStatus);
 
-      if (st === "FINALIZED" || st === "ACCEPTED") {
+      // ACCEPTED is a transitional consensus state (status 5), NEVER terminal finalization!
+      if (st === "ACCEPTED" || st === "5") {
+        options?.onPoll?.(attempt, "ACCEPTED (Awaiting Validator Finalization)");
+        continue;
+      }
+
+      if (st === "FINALIZED" || st === "7") {
+        // Verify on-chain execution success before confirming finality
+        const executionResult = tx?.txExecutionResult;
+        const executionResultName = String(tx?.txExecutionResultName ?? "").toUpperCase();
+        const resultVal = tx?.result;
+        const resultName = String(tx?.resultName ?? "").toUpperCase();
+
+        if (
+          executionResult === 2 ||
+          executionResultName === "FINISHED_WITH_ERROR" ||
+          resultVal === 2 ||
+          resultVal === 7 ||
+          resultName === "FAILURE"
+        ) {
+          return {
+            status: "failed",
+            hash,
+            error: "Transaction consensus completed but execution failed/reverted on-chain.",
+          };
+        }
+
+        const consensusData = tx?.consensus_data as Record<string, unknown> | undefined;
+        if (consensusData?.leader_receipt) {
+          const receipts = Array.isArray(consensusData.leader_receipt)
+            ? (consensusData.leader_receipt as Record<string, unknown>[])
+            : [consensusData.leader_receipt as Record<string, unknown>];
+
+          for (const r of receipts) {
+            const resStatus = String(
+              (r?.result as Record<string, unknown> | undefined)?.status ?? ""
+            ).toLowerCase();
+            const execRes = String(r?.execution_result ?? "").toUpperCase();
+            if (resStatus === "error" || execRes === "FINISHED_WITH_ERROR" || Boolean(r?.error)) {
+              const errMsg =
+                typeof r?.error === "string"
+                  ? r.error
+                  : typeof (r?.result as Record<string, unknown>)?.payload === "string"
+                  ? ((r?.result as Record<string, unknown>).payload as string)
+                  : "Transaction reverted on-chain during consensus execution.";
+              return {
+                status: "failed",
+                hash,
+                error: errMsg,
+              };
+            }
+          }
+        }
+
         return {
           status: "finalized",
           hash,
@@ -50,7 +103,18 @@ export async function waitForTransactionReceipt(
         };
       }
 
-      if (st === "FAILED" || st === "REVERTED" || st === "CANCELED") {
+      if (
+        st === "FAILED" ||
+        st === "REVERTED" ||
+        st === "CANCELED" ||
+        st === "8" ||
+        st === "UNDETERMINED" ||
+        st === "6" ||
+        st === "VALIDATORS_TIMEOUT" ||
+        st === "12" ||
+        st === "LEADER_TIMEOUT" ||
+        st === "13"
+      ) {
         return {
           status: "failed",
           hash,

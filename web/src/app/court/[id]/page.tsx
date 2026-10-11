@@ -19,6 +19,7 @@ import { RulingVerdictCard } from "@/components/ruling-verdict-card";
 import { ScaleIcon } from "@/components/icons";
 import { useWallet } from "@/lib/use-wallet";
 import { waitForTransactionReceipt } from "@/lib/tx-waiter";
+import { ensureStudionetNetwork, formatWalletErrorMessage } from "@/lib/wallet-guard";
 
 function subscribeTimer(callback: () => void) {
   const timer = setInterval(callback, 10_000);
@@ -81,18 +82,15 @@ export default function CourtTrialPage() {
   }, [caseId]);
 
   async function handleAdjudicate() {
-    if (!window.ethereum || !userAccount) {
-      alert("Please connect your wallet to call the GenLayer magistrate.");
-      return;
-    }
-
     setTxStatus({
       state: "submitting",
       message: "Convening GenLayer validator jury and fetching evidence…",
     });
 
     try {
-      const client = createChainSettleClient(userAccount as `0x${string}`);
+      const { address: activeAddress } = await ensureStudionetNetwork(userAccount || undefined);
+
+      const client = createChainSettleClient(activeAddress);
       const hash = await client.writeContract({
         address: chainSettleContractAddress as `0x${string}`,
         functionName: "adjudicate_dispute",
@@ -139,17 +137,13 @@ export default function CourtTrialPage() {
     } catch (err) {
       setTxStatus({
         state: "failed",
-        error: err instanceof Error ? err.message : "Adjudication failed.",
+        error: formatWalletErrorMessage(err, "Adjudication failed."),
       });
     }
   }
 
   async function handleSubmitDefense(e: React.FormEvent) {
     e.preventDefault();
-    if (!window.ethereum || !userAccount) {
-      alert("Please connect your wallet first.");
-      return;
-    }
     if (defense.trim().length < 10) {
       alert("Defense statement must be at least 10 characters.");
       return;
@@ -161,7 +155,9 @@ export default function CourtTrialPage() {
     });
 
     try {
-      const client = createChainSettleClient(userAccount as `0x${string}`);
+      const { address: activeAddress } = await ensureStudionetNetwork(userAccount || undefined);
+
+      const client = createChainSettleClient(activeAddress);
       const hash = await client.writeContract({
         address: chainSettleContractAddress as `0x${string}`,
         functionName: "submit_dispute_defense",
@@ -208,24 +204,21 @@ export default function CourtTrialPage() {
     } catch (err) {
       setTxStatus({
         state: "failed",
-        error: err instanceof Error ? err.message : "Failed to submit defense.",
+        error: formatWalletErrorMessage(err, "Failed to submit defense."),
       });
     }
   }
 
   async function handleWaiveDefenseWindow() {
-    if (!window.ethereum || !userAccount) {
-      alert("Please connect your wallet first.");
-      return;
-    }
-
     setTxStatus({
       state: "submitting",
       message: "Waiving remaining defense window on Studionet…",
     });
 
     try {
-      const client = createChainSettleClient(userAccount as `0x${string}`);
+      const { address: activeAddress } = await ensureStudionetNetwork(userAccount || undefined);
+
+      const client = createChainSettleClient(activeAddress);
       const hash = await client.writeContract({
         address: chainSettleContractAddress as `0x${string}`,
         functionName: "waive_defense_window",
@@ -272,7 +265,7 @@ export default function CourtTrialPage() {
     } catch (err) {
       setTxStatus({
         state: "failed",
-        error: err instanceof Error ? err.message : "Failed to waive defense window.",
+        error: formatWalletErrorMessage(err, "Failed to waive defense window."),
       });
     }
   }

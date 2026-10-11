@@ -5,7 +5,7 @@ import { createClient, createAccount } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import fs from "fs";
 
-const CONTRACT_ADDRESS = "0x29a246a021F02D9A0b1f18a7DCc695d7Ee7643E5";
+const CONTRACT_ADDRESS = "0xDF07e8e104633f06027Bd2642AA95e2bc3b98586";
 const RPC_ENDPOINT = "https://studio.genlayer.com/api";
 
 async function main() {
@@ -17,7 +17,7 @@ async function main() {
   const deployer = createAccount(deployerPk);
   const builderPk =
     process.env.BUILDER_PRIVATE_KEY ||
-    "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+    "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
   const builder = createAccount(builderPk);
 
   const clientDeployer = createClient({ chain: studionet, endpoint: RPC_ENDPOINT, account: deployer });
@@ -25,16 +25,43 @@ async function main() {
 
   async function execWrite(client, name, functionName, args, value = 0n) {
     console.log(`--> [TX START] ${name}...`);
-    const hash = await client.writeContract({
-      address: CONTRACT_ADDRESS,
-      functionName,
-      args,
-      value,
-    });
+    let hash;
+    for (let sendAttempt = 1; sendAttempt <= 5; sendAttempt++) {
+      try {
+        hash = await client.writeContract({
+          address: CONTRACT_ADDRESS,
+          functionName,
+          args,
+          value,
+        });
+        break;
+      } catch (err) {
+        if (sendAttempt === 5) throw err;
+        console.log(`    ... sendContract retry (${err.shortMessage || err.message}), waiting 3s...`);
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
     console.log(`    Hash: ${hash}`);
-    const receipt = await client.waitForTransactionReceipt({ hash, retries: 150, interval: 5000 });
-    console.log(`    Status: ${receipt.status} (Finalized)`);
-    return { hash, receipt };
+    console.log(`    Waiting for Studionet validator consensus...`);
+    
+    for (let attempt = 1; attempt <= 150; attempt++) {
+      try {
+        const tx = await client.getTransaction({ hash });
+        if (tx && (tx.status === 7 || tx.status === "FINALIZED")) {
+          console.log(`    Status: 7 (Finalized)`);
+          return { hash, receipt: tx };
+        }
+        if (attempt % 5 === 0) {
+          console.log(`    ... awaiting consensus (status: ${tx?.status ?? 'pending'}, attempt ${attempt}/150)`);
+        }
+      } catch (err) {
+        if (attempt % 5 === 0) {
+          console.log(`    ... RPC poll retry (${err.shortMessage || err.message}), attempt ${attempt}/150`);
+        }
+      }
+      await new Promise((r) => setTimeout(r, 4000));
+    }
+    throw new Error(`Transaction ${hash} did not finalize within timeout`);
   }
 
   // 1. Create Agreement #5
