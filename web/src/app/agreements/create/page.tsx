@@ -168,7 +168,7 @@ export default function CreateAgreementPage() {
           <div className="flex items-center gap-2 mb-1">
             <span className="w-1.5 h-1.5 rounded-full bg-[#e4f222]" />
             <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--color-fog)]">
-              ChainSettle Escrow Engine v1.2.0
+              ChainSettle Escrow Engine v1.3.0
             </span>
           </div>
           <h1 className="text-3xl font-medium text-[var(--color-paper)] tracking-tight">

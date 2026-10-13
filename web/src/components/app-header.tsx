@@ -46,7 +46,7 @@ export function AppHeader() {
                 ChainSettle
               </span>
               <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-ash)] leading-tight mt-0.5">
-                Autonomous Escrow & Court · v1.2.0
+                Autonomous Escrow & Court · v1.3.0
               </span>
             </div>
           </Link>

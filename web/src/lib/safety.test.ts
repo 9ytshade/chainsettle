@@ -56,9 +56,29 @@ describe("safety utilities", () => {
   });
 
   it("verifies contract versions", () => {
+    expect(checkContractVersionCompatibility("1.3.0").compatible).toBe(true);
+    expect(checkContractVersionCompatibility("1.3.0").expected).toBe("1.3.0");
     expect(checkContractVersionCompatibility("1.2.0").compatible).toBe(true);
     expect(checkContractVersionCompatibility("1.1.0").compatible).toBe(true);
     expect(checkContractVersionCompatibility("1.0.0").compatible).toBe(true);
     expect(checkContractVersionCompatibility("2.0.0").compatible).toBe(false);
+  });
+
+  it("exercises creation preflight against submitted contract version 1.3.0", () => {
+    const simulateCreationPreflight = (contractVersion: string) => {
+      const check = checkContractVersionCompatibility(contractVersion);
+      if (!check.compatible) {
+        throw new Error(`Contract is version "${contractVersion}", but ChainSettle requires version "${check.expected}".`);
+      }
+      return { allowed: true, version: contractVersion };
+    };
+
+    // Submitted contract version 1.3.0 passes preflight
+    expect(simulateCreationPreflight("1.3.0")).toEqual({ allowed: true, version: "1.3.0" });
+
+    // Incompatible versions block agreement creation with descriptive error
+    expect(() => simulateCreationPreflight("2.0.0")).toThrowError(
+      'Contract is version "2.0.0", but ChainSettle requires version "1.3.0".'
+    );
   });
 });

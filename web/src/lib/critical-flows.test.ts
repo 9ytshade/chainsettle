@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatGenDisplay, formatWeiToGen, parseGenToWei } from "./safety";
+import { checkContractVersionCompatibility, formatGenDisplay, formatWeiToGen, parseGenToWei } from "./safety";
 import { shortAddress } from "./genlayer";
 
 describe("1. Basis Points Math & Value Conservation Invariant", () => {
@@ -186,5 +186,40 @@ describe("6. Terminal Polling State Machine", () => {
     expect(isTerminal("PENDING")).toBe(false);
     expect(isTerminal("ACCEPTED")).toBe(false); // ACCEPTED is intermediate, not terminal!
     expect(isTerminal("SUBMITTED")).toBe(false);
+  });
+});
+
+describe("7. Agreement Creation Preflight Against Submitted Contract Version", () => {
+  function runCreationPreflight(contractVersion: string) {
+    const check = checkContractVersionCompatibility(contractVersion);
+    if (!check.compatible) {
+      throw new Error(`Contract is version "${contractVersion}", but ChainSettle requires version "${check.expected}".`);
+    }
+    return { ok: true, version: contractVersion, expected: check.expected };
+  }
+
+  it("passes creation preflight when contract returns submitted version 1.3.0", () => {
+    const preflight = runCreationPreflight("1.3.0");
+    expect(preflight.ok).toBe(true);
+    expect(preflight.version).toBe("1.3.0");
+    expect(preflight.expected).toBe("1.3.0");
+  });
+
+  it("maintains compatibility for earlier versions (1.2.0, 1.1.0, 1.0.0)", () => {
+    expect(runCreationPreflight("1.2.0").ok).toBe(true);
+    expect(runCreationPreflight("1.1.0").ok).toBe(true);
+    expect(runCreationPreflight("1.0.0").ok).toBe(true);
+  });
+
+  it("blocks creation preflight and throws descriptive error for incompatible versions", () => {
+    expect(() => runCreationPreflight("2.0.0")).toThrowError(
+      'Contract is version "2.0.0", but ChainSettle requires version "1.3.0".'
+    );
+    expect(() => runCreationPreflight("0.9.0")).toThrowError(
+      'Contract is version "0.9.0", but ChainSettle requires version "1.3.0".'
+    );
+    expect(() => runCreationPreflight("")).toThrowError(
+      'Contract is version "", but ChainSettle requires version "1.3.0".'
+    );
   });
 });

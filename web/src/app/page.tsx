@@ -111,7 +111,7 @@ export default function HomePage() {
             </div>
 
             <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#161718] border border-[#23252a] text-[11px] font-mono text-[#8a8f98]">
-              <span className="text-[#e4f222]">v1.2.0</span>
+              <span className="text-[#e4f222]">v1.3.0</span>
               <span>Intelligent Contract</span>
             </div>
           </div>

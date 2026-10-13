@@ -192,7 +192,7 @@ export function validateCriteria(value: string): { valid: boolean; error?: strin
 }
 
 export function checkContractVersionCompatibility(version: string): { compatible: boolean; expected: string } {
-  const expected = "1.2.0";
+  const expected = "1.3.0";
   const norm = version.trim();
-  return { compatible: norm === "1.2.0" || norm === "1.1.0" || norm === "1.0.0", expected };
+  return { compatible: norm === "1.3.0" || norm === "1.2.0" || norm === "1.1.0" || norm === "1.0.0", expected };
 }

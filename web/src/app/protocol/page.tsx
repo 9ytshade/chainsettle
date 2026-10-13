@@ -32,7 +32,7 @@ export default function ProtocolPage() {
               From open marketplace bounties to autonomous AI verification and sovereign dispute settlement.
             </h1>
             <p className="text-[16px] text-[var(--color-fog)] leading-relaxed max-w-3xl">
-              The complete on-chain specification, mathematical formulation, and validator consensus mechanisms governing ChainSettle v1.2.0: how hybrid bounties are created and claimed, how deliverables are verified autonomously by GenLayer AI, how client sovereign overrides operate, and how the adversarial dispute court adjudicates proportional Basis Points (BPS) payouts.
+              The complete on-chain specification, mathematical formulation, and validator consensus mechanisms governing ChainSettle v1.3.0: how hybrid bounties are created and claimed, how deliverables are verified autonomously by GenLayer AI, how client sovereign overrides operate, and how the adversarial dispute court adjudicates proportional Basis Points (BPS) payouts.
             </p>
           </div>
 
@@ -46,7 +46,7 @@ export default function ProtocolPage() {
             <div className="pt-2 border-t border-[var(--color-graphite)] font-mono text-[11px] text-[var(--color-fog)] space-y-1.5">
               <div className="flex justify-between">
                 <span>Contract Version:</span>
-                <span className="text-[#e4f222] font-semibold">1.2.0 (Hybrid & Two-Stage)</span>
+                <span className="text-[#e4f222] font-semibold">1.3.0 (Hybrid & Two-Stage)</span>
               </div>
               <div className="flex justify-between">
                 <span>Consensus Engine:</span>
@@ -484,7 +484,7 @@ export default function ProtocolPage() {
                 </div>
                 <div>
                   <span className="text-[10px] text-[var(--color-ash)] uppercase block mb-0.5">Contract Version</span>
-                  <span className="text-[#e4f222] font-medium">1.2.0 (Two-Stage Hybrid Escrow)</span>
+                  <span className="text-[#e4f222] font-medium">1.3.0 (Two-Stage Hybrid Escrow)</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-[var(--color-ash)] uppercase block mb-0.5">Deployed Address</span>

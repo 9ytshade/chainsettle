@@ -44,7 +44,7 @@ export default function RootLayout({
           <div className="max-w-[1200px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px]">
             <div className="flex items-center gap-2 text-[var(--color-mist)]">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-pulse-green)]" />
-              <span className="font-medium text-[var(--color-paper)]">ChainSettle v1.2.0</span>
+              <span className="font-medium text-[var(--color-paper)]">ChainSettle v1.3.0</span>
               <span className="text-[var(--color-ash)]">/</span>
               <span>GenLayer Studionet (61999)</span>
             </div>

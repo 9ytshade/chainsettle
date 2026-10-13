@@ -117,14 +117,14 @@ export async function checkContractVersionCompatibility(): Promise<{
 }> {
   try {
     const version = await readFinalContract("get_contract_version", []);
-    if (typeof version === "string" && (version === "1.2.0" || version === "1.1.0" || version === "1.0.0")) {
+    if (typeof version === "string" && (version === "1.3.0" || version === "1.2.0" || version === "1.1.0" || version === "1.0.0")) {
       return { compatible: true, version };
     }
     const versionStr = typeof version === "string" ? version : String(version ?? "unknown");
     return {
       compatible: false,
       version: versionStr,
-      error: `Contract is version "${versionStr}", but ChainSettle requires version "1.2.0".`,
+      error: `Contract is version "${versionStr}", but ChainSettle requires version "1.3.0".`,
     };
   } catch (error) {
     return {
